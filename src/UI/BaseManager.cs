@@ -12,20 +12,20 @@ namespace KerbalKonstructs.UI
 	{
 		public static Rect BaseManagerRect = new Rect(250, 60, 165, 680);
 
-		public Texture tTitleIcon = GameDatabase.Instance.GetTexture("medsouz/KerbalKonstructs/Assets/titlebaricon", false);
-		public Texture tSmallClose = GameDatabase.Instance.GetTexture("medsouz/KerbalKonstructs/Assets/littleclose", false);
-		public Texture tStatusLaunchsite = GameDatabase.Instance.GetTexture("medsouz/KerbalKonstructs/Assets/setaslaunchsite", false);
-		public Texture tSetLaunchsite = GameDatabase.Instance.GetTexture("medsouz/KerbalKonstructs/Assets/setaslaunchsite", false);
-		public Texture tOpenedLaunchsite = GameDatabase.Instance.GetTexture("medsouz/KerbalKonstructs/Assets/openedlaunchsite", false);
-		public Texture tClosedLaunchsite = GameDatabase.Instance.GetTexture("medsouz/KerbalKonstructs/Assets/closedlaunchsite", false);
-		public Texture tHorizontalSep = GameDatabase.Instance.GetTexture("medsouz/KerbalKonstructs/Assets/horizontalsep", false);
-		public Texture tMakeFavourite = GameDatabase.Instance.GetTexture("medsouz/KerbalKonstructs/Assets/makefavourite", false);
-		public Texture tVerticalSep = GameDatabase.Instance.GetTexture("medsouz/KerbalKonstructs/Assets/verticalsep", false);
-		public Texture tFaveTemp = GameDatabase.Instance.GetTexture("medsouz/KerbalKonstructs/Assets/makefavourite", false);
-		public Texture tIsFave = GameDatabase.Instance.GetTexture("medsouz/KerbalKonstructs/Assets/isFavourite", false);
-		public Texture tFoldOut = GameDatabase.Instance.GetTexture("medsouz/KerbalKonstructs/Assets/foldin", false);
-		public Texture tFoldIn = GameDatabase.Instance.GetTexture("medsouz/KerbalKonstructs/Assets/foldout", false);
-		public Texture tFolded = GameDatabase.Instance.GetTexture("medsouz/KerbalKonstructs/Assets/foldout", false);
+		public Texture tTitleIcon = GameDatabase.Instance.GetTexture("KerbalKonstructs/Assets/titlebaricon", false);
+		public Texture tSmallClose = GameDatabase.Instance.GetTexture("KerbalKonstructs/Assets/littleclose", false);
+		public Texture tStatusLaunchsite = GameDatabase.Instance.GetTexture("KerbalKonstructs/Assets/setaslaunchsite", false);
+		public Texture tSetLaunchsite = GameDatabase.Instance.GetTexture("KerbalKonstructs/Assets/setaslaunchsite", false);
+		public Texture tOpenedLaunchsite = GameDatabase.Instance.GetTexture("KerbalKonstructs/Assets/openedlaunchsite", false);
+		public Texture tClosedLaunchsite = GameDatabase.Instance.GetTexture("KerbalKonstructs/Assets/closedlaunchsite", false);
+		public Texture tHorizontalSep = GameDatabase.Instance.GetTexture("KerbalKonstructs/Assets/horizontalsep", false);
+		public Texture tMakeFavourite = GameDatabase.Instance.GetTexture("KerbalKonstructs/Assets/makefavourite", false);
+		public Texture tVerticalSep = GameDatabase.Instance.GetTexture("KerbalKonstructs/Assets/verticalsep", false);
+		public Texture tFaveTemp = GameDatabase.Instance.GetTexture("KerbalKonstructs/Assets/makefavourite", false);
+		public Texture tIsFave = GameDatabase.Instance.GetTexture("KerbalKonstructs/Assets/isFavourite", false);
+		public Texture tFoldOut = GameDatabase.Instance.GetTexture("KerbalKonstructs/Assets/foldin", false);
+		public Texture tFoldIn = GameDatabase.Instance.GetTexture("KerbalKonstructs/Assets/foldout", false);
+		public Texture tFolded = GameDatabase.Instance.GetTexture("KerbalKonstructs/Assets/foldout", false);
 		
 		public static LaunchSite selectedSite = null;
 
@@ -322,23 +322,26 @@ namespace KerbalKonstructs.UI
 			{
 				if (displayStats)
 				{
-					if (selectedSite.recoveryfactor > 0)
+					if (!KerbalKonstructs.instance.disableRemoteRecovery)
 					{
-						GUILayout.Label("Recovery Factor: " + selectedSite.recoveryfactor.ToString() + "%", LabelInfo);
-						if (selectedSite.name != "Runway" && selectedSite.name != "LaunchPad")
+						if (selectedSite.recoveryfactor > 0)
 						{
-							if (selectedSite.recoveryrange > 0)
-								rangekm = selectedSite.recoveryrange / 1000;
-							else
-								rangekm = 0;
+							GUILayout.Label("Recovery Factor: " + selectedSite.recoveryfactor.ToString() + "%", LabelInfo);
+							if (selectedSite.name != "Runway" && selectedSite.name != "LaunchPad")
+							{
+								if (selectedSite.recoveryrange > 0)
+									rangekm = selectedSite.recoveryrange / 1000;
+								else
+									rangekm = 0;
 
-							GUILayout.Label("Effective Range: " + rangekm.ToString() + " km", LabelInfo);
+								GUILayout.Label("Effective Range: " + rangekm.ToString() + " km", LabelInfo);
+							}
+							else
+								GUILayout.Label("Effective Range: Unlimited", LabelInfo);
 						}
 						else
-							GUILayout.Label("Effective Range: Unlimited", LabelInfo);
+							GUILayout.Label("No Recovery Capability", LabelInfo);
 					}
-					else
-						GUILayout.Label("No Recovery Capability", LabelInfo);
 
 					GUILayout.FlexibleSpace();
 					GUILayout.Label("Launch Refund: " + selectedSite.launchrefund.ToString() + "%", LabelInfo);
@@ -363,18 +366,21 @@ namespace KerbalKonstructs.UI
 				List<LaunchSite> sites = LaunchSiteManager.getLaunchSites();
 				if (!isAlwaysOpen)
 				{
-					if (GUILayout.Button("Open Base for \n" + iFundsOpen + " funds", GUILayout.Height(40)))
+					if (!KerbalKonstructs.instance.disableRemoteBaseOpening)
 					{
-						double currentfunds = Funding.Instance.Funds;
-
-						if (iFundsOpen > currentfunds)
-							ScreenMessages.PostScreenMessage("Insufficient funds to open this base!", 10,
-								ScreenMessageStyle.LOWER_CENTER);
-						else
+						if (GUILayout.Button("Open Base for \n" + iFundsOpen + " funds", GUILayout.Height(40)))
 						{
-							selectedSite.openclosestate = "Open";
-							Funding.Instance.AddFunds(-iFundsOpen, TransactionReasons.Cheating);
-							PersistenceFile<LaunchSite>.SaveList(sites, "LAUNCHSITES", "KK");
+							double currentfunds = Funding.Instance.Funds;
+
+							if (iFundsOpen > currentfunds)
+								ScreenMessages.PostScreenMessage("Insufficient funds to open this base!", 10,
+									ScreenMessageStyle.LOWER_CENTER);
+							else
+							{
+								selectedSite.openclosestate = "Open";
+								Funding.Instance.AddFunds(-iFundsOpen, TransactionReasons.Cheating);
+								PersistenceFile<LaunchSite>.SaveList(sites, "LAUNCHSITES", "KK");
+							}
 						}
 					}
 				}

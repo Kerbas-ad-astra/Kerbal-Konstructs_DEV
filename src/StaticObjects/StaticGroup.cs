@@ -2,24 +2,28 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using KerbalKonstructs.Utilities;
 
 namespace KerbalKonstructs.StaticObjects
 {
 	class StaticGroup
 	{
-		private String groupName;
-		private String bodyName;
+		public String groupName;
+		public String bodyName;
 
-		private List<StaticObject> childObjects = new List<StaticObject>();
-		private Vector3 centerPoint = Vector3.zero;
-		private float visiblityRange = 0;
+		public List<StaticObject> childObjects = new List<StaticObject>();
+		public Vector3 centerPoint = Vector3.zero;
+		public float visibilityRange = 0;
 		public Boolean alwaysActive = false;
 		public Boolean active = false;
+		public Boolean bLiveUpdate = false;
 
 		public StaticGroup(String name, String body)
 		{
 			groupName = name;
 			bodyName = body;
+			centerPoint = Vector3.zero;
+			visibilityRange = 0f; 
 		}
 
 		public void addStatic(StaticObject obj)
@@ -38,25 +42,28 @@ namespace KerbalKonstructs.StaticObjects
 		{
 			float highestVisibility = 0;
 			float furthestDist = 0;
-			Vector3 center = Vector3.zero;
+
+			centerPoint = Vector3.zero;
+
 			foreach (StaticObject obj in childObjects)
 			{
-				if ((float) obj.getSetting("VisibilityRange") > highestVisibility)
-					highestVisibility = (float) obj.getSetting("VisibilityRange");
-
-				center += obj.gameObject.transform.position;
+				// FIRST ONE IS THE CENTER
+				centerPoint = obj.gameObject.transform.position;
+				break;
 			}
-			center /= childObjects.Count;
 
 			foreach (StaticObject obj in childObjects)
 			{
-				float dist = Vector3.Distance(center, obj.gameObject.transform.position);
+				if ((float)obj.getSetting("VisibilityRange") > highestVisibility)
+					highestVisibility = (float)obj.getSetting("VisibilityRange");
+
+				float dist = Vector3.Distance(centerPoint, obj.gameObject.transform.position);
+				
 				if (dist > furthestDist)
 					furthestDist = dist;
 			}
 
-			visiblityRange = highestVisibility + furthestDist;
-			centerPoint = center;
+			visibilityRange = highestVisibility + (furthestDist * 2);
 		}
 
 		public static void SetActiveRecursively(GameObject rootObject, bool active)
@@ -73,8 +80,6 @@ namespace KerbalKonstructs.StaticObjects
 		{
 			foreach (StaticObject obj in childObjects)
 			{
-				// obj.gameObject.SetActive(false);
-
 				SetActiveRecursively(obj.gameObject, false);
 			}
 		}
@@ -85,27 +90,81 @@ namespace KerbalKonstructs.StaticObjects
 			{
 				float dist = Vector3.Distance(obj.gameObject.transform.position, playerPos);
 				bool visible = (dist < (float) obj.getSetting("VisibilityRange"));
-				if (visible != obj.gameObject.activeSelf)
-				{
-					// Debug.Log("KK: Setting " + obj.gameObject.name + " to visible =" + visible);
-					// obj.gameObject.SetActive(visible);
-					SetActiveRecursively(obj.gameObject, visible);
 
-					// ASH 06112014
-					// What if SetActive isn't actually properly activating children?
-					// Transform[] gameObjectList = obj.gameObject.GetComponentsInChildren<Transform>(true);
-					// List<GameObject> rendererList = (from t in gameObjectList where t.gameObject.renderer != null select t.gameObject).ToList();
+				string sFacType = (string)obj.getSetting("FacilityType");
+
+				if (sFacType == "Hangar")
+				{
+					string sInStorage = (string)obj.getSetting("InStorage");
+					string sInStorage2 = (string)obj.getSetting("TargetID");
+					string sInStorage3 = (string)obj.getSetting("TargetType");
 					
-					/* foreach (GameObject renderer in rendererList)
+					foreach (Vessel vVesselStored in FlightGlobals.Vessels)
 					{
-						// Debug.Log("KK: Child activeself is " + renderer.activeSelf);
-						bool childVisible = renderer.activeSelf;
-						if (childVisible != true)
+						if (vVesselStored == null) continue;
+						if (!vVesselStored.loaded) continue;
+						if (vVesselStored.vesselType == VesselType.SpaceObject) continue;
+						if (vVesselStored.vesselType == VesselType.Debris) continue;
+						if (vVesselStored.vesselType == VesselType.EVA) continue;
+						if (vVesselStored.vesselType == VesselType.Flag) continue;
+						if (vVesselStored.vesselType == VesselType.Unknown) continue;
+
+						string sHangarSpace = "None";
+						// If a vessel is hangared
+						if (vVesselStored.id.ToString() == sInStorage)
+							sHangarSpace = "InStorage";
+						if (vVesselStored.id.ToString() == sInStorage2)
+							sHangarSpace = "TargetID";
+						if (vVesselStored.id.ToString() == sInStorage3)
+							sHangarSpace = "TargetType";
+
+						if (sHangarSpace != "None")
 						{
-							// Debug.Log("KK: Setting child active!");
-							renderer.SetActive(true);
+							if (vVesselStored == FlightGlobals.ActiveVessel)
+							{
+								// Craft has been taken control
+								// Empty the hangar
+								obj.setSetting(sHangarSpace, "None");
+								PersistenceUtils.saveStaticPersistence(obj);
+							}
+							else
+							{
+								// Hide the vessel - it is in the hangar
+								if (vVesselStored != null)
+								{
+									foreach (Part p in vVesselStored.Parts)
+									{
+										if (p != null && p.gameObject != null)
+											p.gameObject.SetActive(false);
+										else
+											continue;
+									}
+
+									vVesselStored.MakeInactive();
+									vVesselStored.enabled = false;
+
+									if (vVesselStored.loaded)
+										vVesselStored.Unload();
+								}
+							}
 						}
-					} */
+					}
+				}
+
+				if (sFacType == "CityLights")
+				{
+					if (dist < 60000f)
+						SetActiveRecursively(obj.gameObject, false);
+					else
+					{
+						if (visible)
+							SetActiveRecursively(obj.gameObject, true);
+					}
+				}
+				else
+				{				
+					if (visible)
+						SetActiveRecursively(obj.gameObject, true);
 				}
 			}
 		}
@@ -117,7 +176,7 @@ namespace KerbalKonstructs.StaticObjects
 
 		public float getVisibilityRange()
 		{
-			return visiblityRange;
+			return visibilityRange;
 		}
 
 		public String getGroupName()
@@ -134,7 +193,8 @@ namespace KerbalKonstructs.StaticObjects
 			}
 			else
 			{
-				Debug.Log("KK: Tried to delete an object that doesn't exist in this group!");
+				if (KerbalKonstructs.instance.DebugMode)
+					Debug.Log("KK: StaticGroup deleteObject tried to delete an object that doesn't exist in this group!");
 			}
 		}
 

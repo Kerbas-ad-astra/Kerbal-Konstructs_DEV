@@ -25,6 +25,7 @@ namespace KerbalKonstructs.StaticObjects
 		public Dictionary<string, object> settings = new Dictionary<string, object>();
 
 		public Boolean editing;
+		public Boolean preview;
 
 		private List<Renderer> _rendererComponents; 
 
@@ -54,7 +55,8 @@ namespace KerbalKonstructs.StaticObjects
 			}
 			else
 			{
-				Debug.Log("KK: Setting " + setting + " not found in instance API. BUG BUG BUG.");
+				if (KerbalKonstructs.instance.DebugMode) Debug.Log("KK: Setting " + setting + " not found in instance API. BUG BUG BUG.");
+				
 				return null;
 			}
 		}
@@ -89,9 +91,9 @@ namespace KerbalKonstructs.StaticObjects
 			
 			List<GameObject> colliderList = (from t in gameObjectList where t.gameObject.collider != null select t.gameObject).ToList();
 
-			foreach (GameObject collider in colliderList)
+			foreach (GameObject gocollider in colliderList)
 			{
-				collider.collider.enabled = enable;
+				gocollider.collider.enabled = enable;
 			}
 		}
 
@@ -102,16 +104,21 @@ namespace KerbalKonstructs.StaticObjects
 			return fDistance;
 		}
 
-		public void spawnObject(Boolean editing)
+		public void spawnObject(Boolean editing, Boolean bPreview)
 		{
-			// Objects spawned at runtime should be active
-			gameObject.SetActive(editing);
+			// Objects spawned at runtime should be active, ones spawned at loading not
+			SetActiveRecursively(gameObject, editing);
+			
 			Transform[] gameObjectList = gameObject.GetComponentsInChildren<Transform>();
 			List<GameObject> rendererList = (from t in gameObjectList where t.gameObject.renderer != null select t.gameObject).ToList();
 
 			setLayerRecursively(gameObject, 15);
 
-			if (editing) KerbalKonstructs.instance.selectObject(this);
+			if (bPreview) this.ToggleAllColliders(false);
+
+			this.preview = bPreview;
+
+			if (editing) KerbalKonstructs.instance.selectObject(this, true, true, bPreview);
 
 			float objvisibleRange = (float)getSetting("VisibilityRange");
 			
@@ -167,9 +174,9 @@ namespace KerbalKonstructs.StaticObjects
 				}
 			}
 
-			foreach (GameObject renderer in rendererList)
+			foreach (GameObject gorenderer in rendererList)
 			{
-				renderer.renderer.enabled = true;
+				gorenderer.renderer.enabled = true;
 			}
 		}
 
@@ -183,6 +190,16 @@ namespace KerbalKonstructs.StaticObjects
 			foreach (Transform child in sGameObject.transform)
 			{
 				setLayerRecursively(child.gameObject, newLayerNumber);
+			}
+		}
+
+		public void SetActiveRecursively(GameObject rootObject, bool active)
+		{
+			rootObject.SetActive(active);
+
+			foreach (Transform childTransform in rootObject.transform)
+			{
+				SetActiveRecursively(childTransform.gameObject, active);
 			}
 		}
 	}
